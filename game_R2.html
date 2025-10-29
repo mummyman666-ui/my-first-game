@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ローグライク・タワーディフェンス・シューター</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #1a1a1a;
+            font-family: 'Meiryo', 'Hiragino Kaku Gothic ProN', sans-serif;
+            color: #fff;
+        }
+        #hp-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+        #xp-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #2196f3, #64b5f6);
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+        .ui-text {
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px #000;
+        }
+        #stats-container {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #333;
+            padding: 30px;
+            border: 2px solid #888;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            color: #ffc107;
+        }
+        .close-button {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .ui-bar-container {
+            width: 260px;
+            height: 16px;
+            background: rgba(255,255,255,0.04); /* lighter so empty XP is visible */
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+        /* make the inner bars a bit more 3D */
+        #hp-bar, #xp-bar {
+            box-shadow: inset 0 -2px 6px rgba(0,0,0,0.35);
+            height: 100%;
+            display: block;
+        }
+        .ui-text {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+        }
+        /* Ensure UI (HP/XP bars) sits above the game canvas */
+        #ui-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 300;
+            pointer-events: auto; /* allow clicks if needed */
+            background: rgba(0,0,0,0.55);
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.04);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+            -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(2px);
+        }
+        #upgrade-modal-content {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+        .upgrade-card {
+            background: #444;
+            border: 2px solid #666;
+            border-radius: 10px;
+            width: 200px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .upgrade-card:hover {
+            border-color: #ffc107;
+            transform: translateY(-5px);
+        }
+        .upgrade-card h3 {
+            margin: 0 0 10px 0;
+            color: #ffc107;
+            font-size: 1.1em;
+        }
+        .upgrade-card p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #ddd;
+        }
+        #game-over-modal h2 {
+            color: #f44336;
+        }
+         #minimap {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            border: 2px solid #888;
+            background: rgba(0,0,0,0.5);
+        }
+        /* Skill bar */
+        #skill-bar {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 300;
+            pointer-events: none;
+        }
+        .skill-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #fff;
+            position: relative;
+        }
+        .skill-count {
+            position: absolute;
+            right: -6px;
+            top: -6px;
+            background: #ff5722;
+            color: #fff;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            border: 1px solid #fff3;
+        }
+        /* Tower context menu */
+        #tower-menu {
+            position: absolute;
+            z-index: 1100;
+            width: 160px;
+            background: rgba(40, 44, 52, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+            color: #fff;
+            display: none; /* Initially hidden */
+        }
+        #tower-menu button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 6px;
+            background: #444;
+            border: 1px solid #666;
+            color: #fff;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #tower-menu button:hover {
+            background: #555;
+        }
+        #tower-upgrade-button {
+            background: #2196f3;
+        }
+        #tower-sell-button {
+            background: #f44336;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-container">
+        <div class="ui-text">HP</div>
+        <div class="ui-bar-container">
+            <div id="hp-bar"></div>
+        </div>
+        <div class="ui-text">経験値 (XP)</div>
+        <div class="ui-bar-container">
+            <div id="xp-bar"></div>
+        </div>
+    </div>
+
+    <!-- Skill bar: shows acquired skills and levels -->
+    <div id="skill-bar"></div>
+
+    <div id="stats-container">
+        <div class="ui-text" id="level-text">レベル: 1</div>
+        <div class="ui-text" id="resource-text">資源: 0</div>
+        <div class="ui-text" id="score-text">スコア: 0</div>
+        <div class="ui-text" id="kill-count-text">撃墜数: 0</div>
+            <div class="ui-text" id="mouse-follow-toggle" style="cursor:pointer;">マウス追従: ON</div>
+        <div class="ui-text" id="tower-count-text">タワー: 0 / 10</div>
+        <div class="ui-text" id="wave-text">ウェーブ: 1</div>
+        <div class="ui-text" id="enemy-count-text">残り敵数: 0</div>
+    </div>
+    
+    <canvas id="minimap"></canvas>
+
+    <div id="tutorial-modal" class="modal" style="display: flex;">
+        <div class="modal-content">
+            <span class="close-button" id="close-tutorial">&times;</span>
+            <h2>操作方法</h2>
+            <p><b>マウス移動:</b> 自機の移動</p>
+            <p><b>マウスホイール:</b> 照準の回転</p>
+            <p><b>左クリック:</b> 攻撃</p>
+            <p><b>右クリック:</b> タワー設置メニュー (資源を消費)</p>
+            <p><b>Shift / Space:</b> ダッシュ (クールダウンあり)</p>
+            <p><b>Rキー:</b> ゲームをリスタート</p>
+            <p>敵を倒してレベルアップし、最強のビルドを目指せ！</p>
+            <button id="start-game-button" style="padding: 10px 20px; margin-top: 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1.1em;">ゲーム開始</button>
+        </div>
+    </div>
+    
+    <div id="upgrade-modal" class="modal">
+        <div class="modal-content">
+            <h2>アップグレード選択</h2>
+            <div id="upgrade-modal-content"></div>
+        </div>
+    </div>
+
+    <div id="game-over-modal" class="modal">
+        <div class="modal-content">
+            <h2>ゲームオーバー</h2>
+            <p>Rキーを押して再挑戦！</p>
+        </div>
+    </div>
+
+    <div id="leaderboard-modal" class="modal">
+        <div class="modal-content">
+            <h2>リーダーボード</h2>
+            <div id="leaderboard-content" style="max-height:300px; overflow:auto; text-align:left; margin-bottom:12px;">
+                <!-- Scores will be injected here -->
+            </div>
+            <form id="leaderboard-form" style="display:flex; gap:8px; justify-content:center; align-items:center;">
+                <input id="leaderboard-name" type="text" placeholder="名前 (15文字)" maxlength="15" style="padding:6px; border-radius:6px; border:1px solid #666; background:#222; color:#fff;" />
+                <button id="leaderboard-submit" type="button" style="padding:8px 12px; border-radius:6px; background:#ffc107; border:none; cursor:pointer;">スコア送信</button>
+            </form>
+            <div style="margin-top:10px; text-align:center;"><button id="leaderboard-close" class="close-button" style="position:static; font-size:16px;">閉じる</button></div>
+        </div>
+    </div>
+
+    <!-- Tower context menu (appears on right-click) -->
+    <div id="tower-menu" style="display:none;">
+        <div id="tower-menu-title" style="font-weight:bold; margin-bottom:6px; text-align:center; color:#ffc107">タワー</div>
+        <div id="tower-menu-body" style="font-size:13px; margin-bottom:8px; text-align:center;"></div>
+        <div style="text-align:center;">
+            <button id="tower-upgrade-button">アップグレード</button>
+            <button id="tower-sell-button">売却</button>
+            <button id="tower-menu-close">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        // ==============================================
+        // --- 初期設定 & グローバル変数 ---
+        // ==============================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const hpBar = document.getElementById('hp-bar');
+        const xpBar = document.getElementById('xp-bar');
+        const levelText = document.getElementById('level-text');
+        const resourceText = document.getElementById('resource-text');
+    const scoreText = document.getElementById('score-text');
+    const killCountText = document.getElementById('kill-count-text');
+    const mouseFollowToggle = document.getElementById('mouse-follow-toggle');
+        const waveText = document.getElementById('wave-text');
+        const enemyCountText = document.getElementById('enemy-count-text');
+        
+        // Modals
+        const tutorialModal = document.getElementById('tutorial-modal');
+        const upgradeModal = document.getElementById('upgrade-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+    const leaderboardModal = document.getElementById('leaderboard-modal');
+    const startGameButton = document.getElementById('start-game-button');
+    const leaderboardContent = document.getElementById('leaderboard-content');
+    const leaderboardForm = document.getElementById('leaderboard-form');
+    const leaderboardNameInput = document.getElementById('leaderboard-name');
+    const leaderboardSubmitButton = document.getElementById('leaderboard-submit');
+    const leaderboardCloseButton = document.getElementById('leaderboard-close');
+    // Tower menu elements
+    const towerMenu = document.getElementById('tower-menu');
+    const towerMenuBody = document.getElementById('tower-menu-body');
+    const towerUpgradeButton = document.getElementById('tower-upgrade-button');
+    const towerSellButton = document.getElementById('tower-sell-button');
+    const towerMenuClose = document.getElementById('tower-menu-close');
+        const closeTutorialButton = document.getElementById('close-tutorial');
+        const upgradeModalContent = document.getElementById('upgrade-modal-content');
+
+        // Minimap
+        const minimap = document.getElementById('minimap');
+        const minimapCtx = minimap.getContext('2d');
+        const MINIMAP_SCALE = 0.05;
+        
+    const ENEMY_IMAGE = new Image();
+    let ENEMY_IMAGE_LOADED = false;
+    ENEMY_IMAGE.onload = () => {
+        ENEMY_IMAGE_LOADED = true;
+        console.log('Enemy sprite loaded from data URL');
+    };
+    ENEMY_IMAGE.onerror = () => { console.warn('敵スプライト画像の読み込みに失敗しました'); };
+    // Embed transparent PNG directly as a data URL to avoid CORS issues and background processing.
+    ENEMY_IMAGE.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAARMSURBVHhe7ZtNqBVVFMf/s04zTdPUzIwsKzAQ+yAIIoIglsJCEB8kDx568CCiDx4E/Qk+eBEEBR+KkC+CgNhCQfGgoiB6aGgWkSgy8zB1M83U/N/5r3POmTOzZ86cM3fO3PnPwWfP3XvP+V/33nPPPbcsy7Jly5YtW7b8P4m/n/0/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/8/gAAAAABmU/0fAAAAAWJLR0QAiAUdSAAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB+cKHA4aJ9/0578AAAX/SURBVDjLY2AYa2BwYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgY'..';
+
+        // Game State
+        let running = false;
+        let gameStarted = false;
+        let waveSpawning = false;
+    let towerAutoRepairUnlocked = false;
+        let player, camera;
+    // Mouse follow mode: when true, player will try to be at mouse world position
+    let mouseFollow = true;
+    // Turret rotation sensitivity (wheel). Increase to make turret rotate faster per wheel tick.
+    const TURRET_ROTATION_SENSITIVITY = 0.25; // default was 0.1 used directly in handler
+    // Tower economy
+    const TOWER_BASE_COST = 20; // first tower cost
+    const MAX_TOWERS = 10;
+    const UPGRADE_CLICK_RADIUS = 60; // px = how close to tower for right-click upgrade
+    // Enemy behaviour: how far an enemy will prefer/aggro to towers
+    const ENEMY_TOWER_AGGRO_RANGE = 400;
+
+    function getNextTowerCost() {
+        // exponential: 20, 40, 80, 160, ... based on current placed towers
+        return Math.floor(TOWER_BASE_COST * Math.pow(2, towers.length));
+    }
+
+    function getTowerUpgradeCost(tower) {
+        // upgrade cost doubles each level based on the tower's purchaseCost
+        const level = tower.upgradeLevel || 0; // 0-indexed
+        return Math.floor((tower.purchaseCost || TOWER_BASE_COST) * Math.pow(1.8, level));
+    }
+
+    // Convert screen (client) coords to world coords
+    function screenToWorld(clientX, clientY) {
+        const worldX = clientX + camera.x - canvas.width / 2;
+        const worldY = clientY + camera.y - canvas.height / 2;
+        return { x: worldX, y: worldY };
+    }
+
+    function placeTowerAt(worldX, worldY) {
+        // Max towers limit
+        if (towers.length >= MAX_TOWERS) return { ok: false, reason: 'タワーの最大数に達しています' };
+        // Prevent placement on obstacles
+        if (map.isSolid(worldX, worldY)) return { ok: false, reason: '障害物上には設置できません' };
+        // Prevent too close to player
+        if (Math.hypot(worldX - player.x, worldY - player.y) < player.radius + 40) return { ok: false, reason: 'プレイヤーに近すぎます' };
+
+        const cost = getNextTowerCost();
+        if (player.resources < cost) return { ok: false, reason: '資源が足りません' };
+
+        player.resources -= cost;
+        const t = new Tower(worldX, worldY, 'gatling');
+        t.purchaseCost = cost;
+        t.upgradeLevel = 0;
+        // initialize durability and base stats
+        t.baseMaxHp = t.baseMaxHp || 100;
+        t.hp = t.baseMaxHp;
+        towers.push(t);
+        return { ok: true, tower: t };
+    }
+
+    function showTowerMenuAt(screenX, screenY, tower) {
+        if (!towerMenu) return;
+        towerMenu.style.left = (screenX + 8) + 'px';
+        towerMenu.style.top = (screenY + 8) + 'px';
+        towerMenuBody.textContent = `タイプ: ${tower.type} / レベル: ${tower.upgradeLevel || 0}`;
+        towerMenu.style.display = 'block';
+
+        // wire buttons
+        towerUpgradeButton.onclick = () => {
+            const ok = attemptUpgrade(tower);
+            if (!ok) {
+                alert('アップグレードに資源が足りません');
+            }
+        };
+
+        towerSellButton.onclick = () => {
+            // refund half of purchase + upgrades (approx)
+            const totalInvested = (tower.purchaseCost || TOWER_BASE_COST) * Math.pow(2, tower.upgradeLevel || 0);
+            const refund = Math.floor(totalInvested / 2);
+            player.resources += refund;
+            const idx = towers.indexOf(tower);
+            if (idx >= 0) towers.splice(idx, 1);
+            hideTowerMenu();
+        };
+
+        towerMenuClose.onclick = hideTowerMenu;
+    }
+
+function attemptUpgrade(tower) {
+    if (!tower) return false;
+    const cost = getTowerUpgradeCost(tower);
+    if (player.resources < cost) {
+        // small feedback
+        console.log('Upgrade failed: not enough resources', cost);
+        return false;
+    }
+    player.resources -= cost;
+    tower.upgradeLevel = (tower.upgradeLevel || 0) + 1;
+    // increase tower stats on upgrade
+    tower.baseDamage = (tower.baseDamage || tower.damage || 4) * 1.4;
+    tower.damage = Math.ceil(tower.baseDamage);
+    tower.baseRange = tower.baseRange || tower.range;
+    tower.baseRange = Math.ceil(tower.baseRange * 1.18);
+    tower.range = tower.baseRange;
+    // increase maxHp and heal a bit
+    tower.baseMaxHp = (tower.baseMaxHp || 100) + Math.floor(20 * tower.upgradeLevel);
+    tower.hp = Math.min(tower.hp + Math.floor(tower.baseMaxHp * 0.25), tower.baseMaxHp);
+    // speed up firing slightly per upgrade
+    tower.baseShootCooldown = tower.baseShootCooldown || tower.shootCooldown;
+    tower.baseShootCooldown = Math.max(15, Math.floor(tower.baseShootCooldown * 0.9));
+    tower.shootCooldown = tower.baseShootCooldown;
+    game.playSound('levelUp', 0.4);
+    return true;
+}
+
+    function hideTowerMenu() {
+        if (!towerMenu) return;
+        towerMenu.style.display = 'none';
+    }
+
+        // --- プレイヤーのドット絵データ ---
+        // カラーパレットの定義
+        const playerPalette = {
+            '_': 'transparent',
+            'D': '#4a4a4a', // 濃い灰色 (影・輪郭)
+            'M': '#8b8b8b', // 中間灰色 (機体本体)
+            'L': '#d3d3d3', // 明るい灰色 (ハイライト)
+            'C': '#00ffff', // シアン (コックピット)
+            'O': '#ff9900'  // オレンジ (エンジン噴射口)
+        };
+
+        // ピクセル配置図の定義（改良した見た目）
+        const playerSpriteData = [
+            "________________________________",
+            "________________________________",
+            "_______________DD_______________",
+            "______________DMMMD_____________",
+            "_____________DMMMMMMD___________",
+            "____________DMMMLMMMD___________",
+            "___________DMMMLLMMMD___________",
+            "___________DMMMMMMMMD___________",
+            "__________DMMMMMCCMMMMD_________",
+            "_________DMMMMCCCCCCMMMMD________",
+            "________DMMMMMMMMMMMMMMMMD_______",
+            "_______DMMMLLLDDDDLLLMMMD_______",
+            "_______DMMML_________LMMMD______",
+            "______DMMMM___________MMMMD_____",
+            "______DMMMM___________MMMMD_____",
+            "_____DMMMMM___________MMMMMD____",
+            "____DMMMMMMMM______MMMMMMMMD____",
+            "___DMMMLLLLLLDDDDDLLLLLLLMMMD___",
+            "__DMMMLLLLLLLLLLLLLLLLLLLLMMMD__",
+            "_DMMMLLLLLLLLLLLLLLLLLLLLLLMMMD_",
+            "_DMMMMMMMMMMMMMMMMMMMMMMMMMMMD__",
+            "__DMMMMMMMMMMMMMMMMMMMMMMMMMD___",
+            "___DMMMMMMMMMMMMMMMMMMMMMMMMD___",
+            "____DMMMD___DMMMMMMM___DMMMD____",
+            "_____DDD____DMMMMM____DDD______",
+            "_____________DMMMD_____________",
+            "______________DDD______________",
+            "_____________DOOOD_____________",
+            "____________DOOOOD_____________",
+            "________________________________",
+            "________________________________"
+        ];
+
+        let enemies = [];
+        let projectiles = [];
+        let enemyProjectiles = [];
+        let particles = [];
+        let resources = [];
+        let towers = [];
+        let map;
+        
+        let mouse = { x: 0, y: 0, down: false };
+        let keys = {};
+
+        let wave = 1;
+        let enemiesToSpawn = 10;
+        let waveCooldown = 3000; // 3 seconds
+        let waveTimer = waveCooldown;
+
+        // Audio Context
+        let audioCtx;
+        let sounds = {};
+        let bgm;
+
+        const MAP_WIDTH = 4000;
+        const MAP_HEIGHT = 4000;
+        const TILE_SIZE = 50;
+
+        // ==============================================
+        // --- メインゲームクラス ---
+        // ==============================================
+        // 設計図データからドット絵を生成する関数
+        function generatePixelArt(data, palette) {
+            const width = data[0].length;
+            const height = data.length;
+            
+            // 画面には表示されない、一時的なcanvasをメモリ上に作成
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false; // ドット絵を鮮明にする設定
+
+            // 1ピクセルずつ設計図通りに色を塗る
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const char = data[y][x];
+                    const color = palette[char];
+                    if (color !== 'transparent') {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            return canvas; // 完成したドット絵（canvas）を返す
+        }
+
+        class Game {
+            constructor() {
+                this.playerImage = generatePixelArt(playerSpriteData, playerPalette);
+                this.resizeCanvas();
+                this.setupEventListeners();
+                this.loadSounds();
+                this.init();
+            }
+
+            init() {
+                // runningをfalseにすることで、ゲームループが動かないようにする
+                running = false; 
+                gameOverModal.style.display = 'none';
+
+                map = new Map(MAP_WIDTH, MAP_HEIGHT, TILE_SIZE);
+                player = new Player(MAP_WIDTH / 2, MAP_HEIGHT / 2);
+                camera = new Camera(player);
+
+                enemies = [];
+                projectiles = [];
+                enemyProjectiles = [];
+                particles = [];
+                resources = [];
+                towers = [];
+
+                wave = 1;
+                
+                // 初回起動時のみチュートリアルを表示
+                if (!gameStarted) {
+                    tutorialModal.style.display = 'flex';
+                    // ループは動かし続けるが、ゲームロジックは動かさない
+                } else {
+                    // Rキーでのリスタート時はすぐにゲームを開始
+                    running = true;
+                    this.startWave();
+                }
+                if (bgm && audioCtx.state === 'running') {
+                    this.fadeAudio(bgm.gainNode, 0.5, 2);
+                }
+                
+                // ここにあった gameLoop() の呼び出しを削除
+            }
+
+            setupEventListeners() {
+                window.addEventListener('resize', this.resizeCanvas.bind(this));
+                window.addEventListener('mousemove', e => {
+                    mouse.x = e.clientX;
+                    mouse.y = e.clientY;
+                });
+                window.addEventListener('mousedown', e => {
+                    if (!audioCtx) this.initAudio();
+                    if(e.button === 0) mouse.down = true;
+                    if (e.button === 2 && running) { // ゲーム実行中のみメニューを開く
+                        // Right-click: attempt to place or open tower menu
+                        e.preventDefault();
+                        // convert to world coords
+                        try {
+                            const wp = screenToWorld(mouse.x, mouse.y);
+                            // check for existing tower near click
+                            let found = null;
+                            for (let t of towers) {
+                                if (Math.hypot(t.x - wp.x, t.y - wp.y) <= (t.radius + 8)) {
+                                    found = t; break;
+                                }
+                            }
+                            if (found) {
+                                const dist = Math.hypot(player.x - found.x, player.y - found.y);
+                                if (dist <= UPGRADE_CLICK_RADIUS) {
+                                    // immediate upgrade attempt on close right-click
+                                    const ok = attemptUpgrade(found);
+                                    if (!ok) {
+                                        // fallback: show menu so player can sell if needed
+                                        showTowerMenuAt(e.clientX, e.clientY, found);
+                                    }
+                                } else {
+                                    showTowerMenuAt(e.clientX, e.clientY, found); // メニューはクリック位置に表示
+                                }
+                            } else {
+                                // try place
+                                const res = placeTowerAt(wp.x, wp.y);
+                                if (!res.ok) {
+                                    // brief feedback
+                                    // only alert for now; could add in-game toast later
+                                    // don't spam alerts while playing; show small temporary message
+                                    console.log('Place tower failed:', res.reason);
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('Right-click handling failed', err);
+                        }
+                    }
+                });
+                // Prevent the browser context menu and ensure canvas also handles right-clicks
+                window.addEventListener('contextmenu', e => { e.preventDefault(); });
+                canvas.addEventListener('contextmenu', e => { e.preventDefault(); });
+
+                window.addEventListener('mouseup', e => {
+                    if(e.button === 0) mouse.down = false;
+                });
+                window.addEventListener('wheel', e => {
+                    // Use configurable sensitivity to control turret rotation speed
+                    player.angle += Math.sign(e.deltaY) * TURRET_ROTATION_SENSITIVITY;
+                });
+                window.addEventListener('keydown', e => {
+                    keys[e.code] = true;
+                    if (e.code === 'KeyM') toggleMouseFollow();
+                    if (e.code === 'Enter' && tutorialModal.style.display === 'flex') {
+                        startGameButton.click(); // Enterキーでゲーム開始
+                    }
+                });
+                window.addEventListener('keyup', e => delete keys[e.code]);
+
+                const startGameAction = () => {
+                    tutorialModal.style.display = 'none';
+                    if (!gameStarted) {
+                        gameStarted = true;
+                        running = true;
+                        if (!audioCtx) this.initAudio();
+                        this.startWave();
+                    }
+                };
+                closeTutorialButton.onclick = startGameAction;
+                startGameButton.onclick = startGameAction;
+            }
+            
+            initAudio() {
+                if (audioCtx) return;
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                this.setupBGM();
+                 if (bgm) {
+                    this.fadeAudio(bgm.gainNode, 0.5, 2);
+                }
+            }
+            
+            loadSounds() {
+                // Preload sounds
+                // In a real game, you would load audio files here
+            }
+            
+            setupBGM() {
+                if (!audioCtx || bgm) return;
+                bgm = {};
+                const oscillator = audioCtx.createOscillator();
+                bgm.gainNode = audioCtx.createGain();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(100, audioCtx.currentTime);
+                oscillator.connect(bgm.gainNode).connect(audioCtx.destination);
+                bgm.gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                oscillator.start();
+            }
+
+            fadeAudio(gainNode, targetVolume, duration) {
+                 if (!gainNode) return;
+                 gainNode.gain.linearRampToValueAtTime(targetVolume, audioCtx.currentTime + duration);
+            }
+
+            playSound(type, volume = 1, options = {}) {
+                if (!audioCtx) return;
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = volume;
+                gainNode.connect(audioCtx.destination);
+                
+                const oscillator = audioCtx.createOscillator();
+                oscillator.connect(gainNode);
+
+                switch(type) {
+                    case 'shoot':
+                        oscillator.type = 'triangle';
+                        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime + 0.1);
+                        break;
+                    case 'hit':
+                         oscillator.type = 'square';
+                        oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
+                        break;
+                    case 'explosion':
+                        // Using noise for explosion
+                         const bufferSize = audioCtx.sampleRate * 0.5;
+                         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                         const data = buffer.getChannelData(0);
+                         for (let i = 0; i < bufferSize; i++) {
+                            data[i] = Math.random() * 2 - 1;
+                         }
+                         const noise = audioCtx.createBufferSource();
+                         noise.buffer = buffer;
+                         
+                         const bqFilter = audioCtx.createBiquadFilter();
+                         bqFilter.type = "lowpass";
+                         bqFilter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                         bqFilter.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+
+                         noise.connect(bqFilter).connect(gainNode);
+                         noise.start();
+                         setTimeout(() => noise.stop(), 300);
+                         return; // Early return for special case
+                    case 'levelUp':
+                         oscillator.type = 'sawtooth';
+                         oscillator.frequency.setValueAtTime(330, audioCtx.currentTime);
+                         oscillator.frequency.exponentialRampToValueAtTime(660, audioCtx.currentTime + 0.5);
+                         break;
+                }
+                oscillator.start();
+                setTimeout(() => oscillator.stop(), 100);
+            }
+
+            resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                minimap.width = MAP_WIDTH * MINIMAP_SCALE;
+                minimap.height = MAP_HEIGHT * MINIMAP_SCALE;
+            }
+
+            startWave() {
+                waveTimer = -1; // -1 indicates wave is active
+                waveSpawning = true;
+                enemiesToSpawn = 5 + Math.floor(Math.pow(wave, 1.5));
+                for (let i = 0; i < enemiesToSpawn; i++) {
+                    const spawnDelay = Math.random() * 3000;
+                    setTimeout(() => {
+                        this.spawnEnemy();
+                    }, spawnDelay); // Stagger spawns
+
+                    // 最後の敵の出現タイミングでspawningフラグをfalseにする
+                    if (i === enemiesToSpawn - 1) {
+                        setTimeout(() => {
+                            waveSpawning = false;
+                        }, spawnDelay + 10); // 念のため少しだけ遅らせる
+                    }
+                }
+            }
+
+            spawnEnemy() {
+              // Adjust enemy spawn rates based on wave number
+              let enemyType;
+              const r = Math.random();
+              if (wave > 5 && r < 0.02 + (wave - 5) * 0.01) enemyType = 'boss';
+              else if (wave > 2 && r < 0.20) enemyType = 'chaser';
+              else if (wave > 3 && r < 0.40) enemyType = 'splitter';
+              else enemyType = 'grunt';
+                 const pos = map.getRandomFloorPosition();
+                 
+                 // Don't spawn too close to player
+                 const dist = Math.hypot(pos.x - player.x, pos.y - player.y);
+                 if (dist < canvas.width / 2) {
+                    this.spawnEnemy(); // try again
+                    return;
+                 }
+
+                 enemies.push(new Enemy(pos.x, pos.y, wave, enemyType));
+            }
+
+            update() {
+                // ゲームが実行中でなければ、以降のキャラクターの動きなどの処理は行わない
+                if (!running) return;
+                
+                player.update();
+
+                // --- Entity Updates ---
+                // Reset temporary effects (like slow) before recalculating
+                enemies.forEach(e => e.resetEffects());
+
+                // Towers apply effects first
+                towers.forEach(t => t.update(enemies));
+                
+                // Update enemies (movement, shooting)
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    enemy.update(player, towers);
+                    if (enemy.isDead) {
+                        enemies.splice(i, 1);
+                    }
+                }
+                
+                // Update projectiles
+                for (let i = projectiles.length - 1; i >= 0; i--) {
+                    const p = projectiles[i];
+                    p.update();
+                    if (p.life <= 0) {
+                        projectiles.splice(i, 1);
+                    }
+                }
+                
+                for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                    const p = enemyProjectiles[i];
+                    p.update();
+                    if (p.life <= 0) {
+                        enemyProjectiles.splice(i, 1);
+                    }
+                }
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.update();
+                    if (p.life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+
+                for (let i = resources.length - 1; i >= 0; i--) {
+                    const r = resources[i];
+                    r.update(player);
+                    if(r.collected) {
+                        resources.splice(i, 1);
+                    }
+                }
+                
+                this.checkCollisions();
+                camera.update();
+
+                if (enemies.length === 0 && waveTimer < 0 && !waveSpawning) {
+                    waveTimer = waveCooldown;
+                    this.showUpgradeModal();
+                }
+
+                if (waveTimer > 0) {
+                    waveTimer -= 1000 / 60; // Approximate delta time
+                    if (waveTimer <= 0) {
+                        wave++;
+                        this.startWave();
+                    }
+                }
+                   
+                if (player.hp <= 0 && running) {
+                    this.gameOver();
+                }
+            }
+
+            draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save();
+                ctx.translate(canvas.width / 2 - camera.x, canvas.height / 2 - camera.y);
+                
+                // マップは自身のロジックでループ描画するので先に描く
+                map.draw(ctx, camera);
+                
+                // 全てのエンティティを9つの区画に描画し、シームレスなループを実現する
+                for (let offsetX = -MAP_WIDTH; offsetX <= MAP_WIDTH; offsetX += MAP_WIDTH) {
+                    for (let offsetY = -MAP_HEIGHT; offsetY <= MAP_HEIGHT; offsetY += MAP_HEIGHT) {
+                        ctx.save();
+                        ctx.translate(offsetX, offsetY);
+                        
+                        resources.forEach(r => r.draw(ctx));
+                        towers.forEach(t => t.draw(ctx));
+                        player.draw(ctx);
+                        enemies.forEach(enemy => enemy.draw(ctx));
+                        projectiles.forEach(p => p.draw(ctx));
+                        enemyProjectiles.forEach(p => p.draw(ctx));
+                        particles.forEach(p => p.draw(ctx));
+                        
+                        ctx.restore();
+                    }
+                }
+
+                ctx.restore();
+                
+                this.updateUI();
+                this.drawMinimap();
+            }
+
+            gameLoop() {
+                // Rキーでのリスタートは常にチェック
+                if (keys['KeyR']) {
+                    this.init();
+                    return; // このフレームはここで終了
+                }
+                this.update();
+                this.draw();
+                requestAnimationFrame(this.gameLoop.bind(this));
+            }
+
+            checkCollisions() {
+                // Projectiles vs Enemies
+                for (let i = projectiles.length - 1; i >= 0; i--) { // Iterate backwards for safe removal
+                    const p = projectiles[i];
+                    let hit = false;
+                    for (const e of enemies) {
+                        if (Math.hypot(p.x - e.x, p.y - e.y) < p.radius + e.radius) {
+                            hit = true;
+                            e.takeDamage(p.damage);
+                            this.playSound('hit', 0.5);
+                            for(let k = 0; k < 3; k++) particles.push(new Particle(p.x, p.y, e.color));
+                            
+                            if (p.type === 'rocket') {
+                                this.createExplosion(p.x, p.y, p.blastRadius, p.damage);
+                            }
+                            
+                            if (p.pierce > 0) {
+                                p.pierce--; // 貫通回数を減らす
+                            } else {
+                                projectiles.splice(i, 1); // 貫通しない弾は消滅
+                                break; // この弾は消えたので、他の敵との判定は不要
+                            }
+                        }
+                    }
+                }
+
+                // Enemy Projectiles vs Player
+                for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                    const p = enemyProjectiles[i];
+                    if (Math.hypot(p.x - player.x, p.y - player.y) < p.radius + player.radius) {
+                        player.takeDamage(p.damage);
+                        enemyProjectiles.splice(i, 1);
+                    }
+                }
+
+                // Enemies vs Player
+                enemies.forEach(e => {
+                    // プレイヤーが無敵でない、かつ敵と接触した場合
+                    if (player.invulnerabilityTimer <= 0 && Math.hypot(e.x - player.x, e.y - player.y) < e.radius + player.radius) {
+                         player.takeDamage(5); // Collision damage
+                         player.invulnerabilityTimer = player.invulnerabilityDuration; // 無敵タイマーを開始
+                    }
+                });
+
+                // Enemy Projectiles vs Towers
+                enemyProjectiles.forEach((p, pi) => {
+                    towers.forEach((t, ti) => {
+                        if (Math.hypot(p.x - t.x, p.y - t.y) < p.radius + t.radius) {
+                            t.hp -= p.damage;
+                            enemyProjectiles.splice(pi, 1);
+                        }
+                    }
+                });
+            }
+            
+            createExplosion(x, y, radius, damage) {
+                this.playSound('explosion', 0.8);
+                for (let i = 0; i < 50; i++) {
+                    particles.push(new Particle(x, y, '#ff8c00', 3, Math.random() * 5 + 2));
+                }
+                enemies.forEach(e => {
+                    const dist = Math.hypot(x - e.x, y - e.y);
+                    if (dist < radius) {
+                        const damageFalloff = 1 - (dist / radius);
+                        e.takeDamage(damage * damageFalloff);
+                    }
+                });
+            }
+
+            updateUI() {
+                hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
+                xpBar.style.width = `${(player.xp / player.xpToNextLevel) * 100}%`;
+                levelText.textContent = `レベル: ${player.level}`;
+                resourceText.textContent = `資源: ${player.resources}`;
+                scoreText.textContent = `スコア: ${player.score || 0}`;
+                killCountText.textContent = `撃墜数: ${player.kills || 0}`;
+                const towerCountText = document.getElementById('tower-count-text');
+                if (towerCountText) towerCountText.textContent = `タワー: ${towers.length} / ${MAX_TOWERS}`;
+                waveText.textContent = `ウェーブ: ${wave}`;
+                enemyCountText.textContent = `残り敵数: ${enemies.length}`;
+                // render skill bar (top center)
+                renderSkillBar();
+            }
+
+            drawMinimap() {
+                minimapCtx.clearRect(0, 0, minimap.width, minimap.height);
+                minimapCtx.fillStyle = 'rgba(0,0,0,0.5)';
+                minimapCtx.fillRect(0, 0, minimap.width, minimap.height);
+
+                // Player
+                minimapCtx.fillStyle = '#00f';
+                minimapCtx.fillRect(
+                    player.x * MINIMAP_SCALE - 2,
+                    player.y * MINIMAP_SCALE - 2,
+                    4, 4
+                );
+
+                // Enemies
+                minimapCtx.fillStyle = '#f00';
+                enemies.forEach(e => {
+                     minimapCtx.fillRect(
+                        e.x * MINIMAP_SCALE - 1,
+                        e.y * MINIMAP_SCALE - 1,
+                        2, 2
+                    );
+                });
+                
+                // Towers
+                minimapCtx.fillStyle = '#0f0';
+                towers.forEach(t => {
+                     minimapCtx.fillRect(
+                        t.x * MINIMAP_SCALE - 1,
+                        t.y * MINIMAP_SCALE - 1,
+                        2, 2
+                    );
+                });
+            }
+            
+            showUpgradeModal() {
+                running = false;
+                upgradeModal.style.display = 'flex';
+                upgradeModalContent.innerHTML = '';
+                
+                // If there are no towers, filter out tower-specific upgrades
+                const selectedUpgrades = this.getRandomUpgrades(3);
+
+                selectedUpgrades.forEach(upgrade => {
+                    const card = document.createElement('div');
+                    card.className = 'upgrade-card';
+                    const icon = upgrade.icon || '✦';
+                    card.innerHTML = `<h3>${icon} ${upgrade.name}</h3><p>${upgrade.description}</p>`;
+                    card.onclick = () => {
+                        try {
+                            upgrade.apply(player);
+                        } catch (e) {
+                            console.warn('Upgrade apply failed', e);
+                        }
+                        // Track acquired skills on player
+                        player.skills = player.skills || {};
+                        player.skills[upgrade.name] = (player.skills[upgrade.name] || 0) + 1;
+                        renderSkillBar();
+                        upgradeModal.style.display = 'none';
+                        running = true;
+                     };
+                    upgradeModalContent.appendChild(card);
+                });
+            }
+            
+            getRandomUpgrades(count) {
+                // Filter pool based on current state (e.g., hide tower upgrades if no towers exist)
+                let pool = UPGRADE_POOL.slice();
+                if (!towers || towers.length === 0) {
+                    pool = pool.filter(u => (u.type || 'player') !== 'tower');
+                }
+                // Shuffle
+                for (let i = pool.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [pool[i], pool[j]] = [pool[j], pool[i]];
+                }
+                return pool.slice(0, Math.max(0, Math.min(count, pool.length)));
+            }
+            
+            gameOver() {
+                running = false;
+                gameOverModal.style.display = 'flex';
+                this.fadeAudio(bgm.gainNode, 0, 1);
+                // Show leaderboard (attempt to post/refresh)
+                try {
+                    this.showLeaderboardModal();
+                } catch (e) {
+                    console.warn('Leaderboard unavailable:', e);
+                }
+            }
+        }
+
+        // Toggle helper for mouse-follow mode
+        function toggleMouseFollow() {
+            mouseFollow = !mouseFollow;
+            if (mouseFollowToggle) {
+                mouseFollowToggle.textContent = `マウス追従: ${mouseFollow ? 'ON' : 'OFF'}`;
+            }
+        }
+
+        if (mouseFollowToggle) {
+            mouseFollowToggle.onclick = () => toggleMouseFollow();
+        }
+
+        // ----------------------------
+        // Leaderboard helpers
+        // ----------------------------
+        Game.prototype.showLeaderboardModal = async function() {
+            if (!leaderboardModal) return;
+            leaderboardContent.innerHTML = '<div style="text-align:center; color:#ccc;">ロード中...</div>';
+            leaderboardModal.style.display = 'flex';
+
+            // load current top scores
+            const rows = await fetchLeaderboard(10);
+            renderLeaderboard(rows);
+
+            // prefill default name
+            if (leaderboardNameInput) leaderboardNameInput.value = 'Player';
+
+            if (leaderboardSubmitButton) {
+                leaderboardSubmitButton.onclick = async () => {
+                    const name = (leaderboardNameInput && leaderboardNameInput.value) ? leaderboardNameInput.value.trim() : 'Player';
+                    // Use player's accumulated score (kills & enemy type points)
+                    const score = (player && typeof player.score === 'number') ? player.score : 0;
+                    try {
+                        await submitScore(name, score);
+                        const rows2 = await fetchLeaderboard(10);
+                        renderLeaderboard(rows2);
+                        leaderboardSubmitButton.textContent = '送信済み';
+                        setTimeout(() => leaderboardSubmitButton.textContent = 'スコア送信', 1500);
+                    } catch (err) {
+                        console.warn('submit failed', err);
+                        alert('スコア送信に失敗しました。サーバが動作しているか確認してください。');
+                    }
+                };
+            }
+
+            if (leaderboardCloseButton) leaderboardCloseButton.onclick = () => {
+                leaderboardModal.style.display = 'none';
+            };
+        };
+
+        async function fetchLeaderboard(limit = 10) {
+            try {
+                const res = await fetch(`/api/leaderboard?limit=${limit}`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return await res.json();
+            } catch (e) {
+                console.warn('fetchLeaderboard error', e);
+                return [];
+            }
+        }
+
+        function renderLeaderboard(rows) {
+            if (!leaderboardContent) return;
+            if (!rows || rows.length === 0) {
+                leaderboardContent.innerHTML = '<div style="text-align:center; color:#ccc;">まだスコアがありません。</div>';
+                return;
+            }
+            leaderboardContent.innerHTML = '';
+            // Show player's own final score/kills on top (if available)
+            if (typeof player !== 'undefined' && player) {
+                const me = document.createElement('div');
+                me.style.textAlign = 'center';
+                me.style.color = '#fff';
+                me.style.marginBottom = '8px';
+                me.innerHTML = `あなたのスコア: <strong style="color:#8fd">${player.score || 0}</strong> / 撃墜: <strong style="color:#ffc107">${player.kills || 0}</strong>`;
+                leaderboardContent.appendChild(me);
+            }
+
+            const ul = document.createElement('ol');
+            ul.style.paddingLeft = '18px';
+            ul.style.margin = '0';
+            rows.forEach(r => {
+                const li = document.createElement('li');
+                li.style.marginBottom = '6px';
+                li.style.color = '#fff';
+                li.innerHTML = `<strong style="color:#ffc107">${escapeHtml(r.name)}</strong> — <span style="color:#8fd">${r.score}</span> <span style="color:#888; font-size:0.9em">(${r.created_at})</span>`;
+                ul.appendChild(li);
+            });
+            leaderboardContent.appendChild(ul);
+        }
+
+        // --- Skill bar rendering ---
+        function renderSkillBar() {
+            const bar = document.getElementById('skill-bar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            if (!player || !player.skills) return;
+            Object.keys(player.skills).forEach(name => {
+                const count = player.skills[name] || 0;
+                if (count <= 0) return;
+                // Find upgrade metadata (icon)
+                const meta = UPGRADE_POOL.find(u => u.name === name) || {};
+                const icon = meta.icon || '✦';
+                const el = document.createElement('div');
+                el.className = 'skill-icon';
+                el.textContent = icon;
+                const badge = document.createElement('div');
+                badge.className = 'skill-count';
+                badge.textContent = String(count);
+                el.appendChild(badge);
+                bar.appendChild(el);
+            });
+        }
+
+        async function submitScore(name, score) {
+            const payload = { name: String(name).slice(0, 64), score: Number(score) };
+            const res = await fetch('/api/leaderboard', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('submit failed ' + res.status);
+            return await res.json();
+        }
+
+        function escapeHtml(s) {
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // ==============================================
+        // --- エンティティクラス ---
+        // ==============================================
+
+        class Camera {
+            constructor(target) {
+                this.target = target;
+                this.x = target.x;
+                this.y = target.y;
+                this.smoothing = 0.1;
+            }
+            update() {
+                const dx = this.target.x - this.x;
+                const dy = this.target.y - this.y;
+
+                // プレイヤーがマップの反対側にワープした場合、カメラも追従してワープする
+                if (Math.abs(dx) > MAP_WIDTH / 2) {
+                    this.x += dx > 0 ? MAP_WIDTH : -MAP_WIDTH;
+                }
+                if (Math.abs(dy) > MAP_HEIGHT / 2) {
+                    this.y += dy > 0 ? MAP_HEIGHT : -MAP_HEIGHT;
+                }
+
+                this.x += (this.target.x - this.x) * this.smoothing;
+                this.y += (this.target.y - this.y) * this.smoothing;
+            }
+	}
+
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 15;
+                this.color = '#00aaff';
+                this.speed = 2.5; // 初期スピードを調整 (元は4.5)
+                this.baseSpeed = this.speed; // store base speed for sensitivity scaling
+                this.angle = 0;
+
+                // skill pickups tracker: name -> count
+                this.skills = {};
+                
+                this.maxHp = 100;
+                this.hp = this.maxHp;
+                
+                this.level = 1;
+                this.xp = 0;
+                this.xpToNextLevel = 100;
+                this.resources = 0;
+                this.resourceMultiplier = 1.0;
+
+                // Score tracking
+                this.kills = 0;
+                this.score = 0;
+
+                this.hasHoming = false;
+                this.hasRockets = false;
+                this.pierceCount = 0; // 貫通弾用のプロパティ
+
+                this.shootCooldown = 400;
+                this.shootTimer = 0;
+                this.damage = 10;
+
+                // Dash
+                this.dashSpeed = 20;
+                this.dashDuration = 100; // ms
+                this.dashCooldown = 1000;
+                this.dashTimer = 0;
+                this.isDashing = false;
+
+                // 無敵時間（I-frame）用タイマー
+                this.invulnerabilityTimer = 0;
+                this.invulnerabilityDuration = 1000; // 1000ms = 1秒
+            }
+
+            update() {
+                // Movement
+                const targetX = mouse.x + camera.x - canvas.width / 2;
+                const targetY = mouse.y + camera.y - canvas.height / 2;
+                const angleToMouse = Math.atan2(targetY - this.y, targetX - this.x);
+                const dist = Math.hypot(targetX - this.x, targetY - this.y);
+                // DO NOT force aim to mouse here — turret/barrel rotation is controlled by mouse wheel (roll)
+                // The wheel handler updates `player.angle` already. Keep that behavior so the barrel is
+                // rotated via wheel (roll) as requested.
+                // Mouse-follow sensitivity control
+                // Base sensitivity when playing in browser (lower -> smoother/slower following)
+                const BASE_MOUSE_SENSITIVITY = 0.18; // increased slightly to make the device respond a bit faster
+                const FOCUS_SENSITIVITY_REDUCTION = 0.7; // reduce sensitivity while in-browser focus
+
+                if (mouseFollow) {
+                    // scale sensitivity based on player's current speed relative to base speed
+                    let sensitivity = BASE_MOUSE_SENSITIVITY * (this.speed / (this.baseSpeed || this.speed));
+                    // further reduce sensitivity while the game is actively running
+                    const GAMEPLAY_SENSITIVITY_REDUCTION = running ? 0.5 : 1.0;
+                    sensitivity *= GAMEPLAY_SENSITIVITY_REDUCTION;
+                    // small bonus per level (only meaningful if level affects speed)
+                    sensitivity *= (1 + Math.max(0, this.level - 1) * 0.02);
+                    // if the document (tab/window) is focused, reduce sensitivity for smoother control
+                    try {
+                        if (document.hasFocus && document.hasFocus()) sensitivity *= FOCUS_SENSITIVITY_REDUCTION;
+                    } catch (e) {}
+
+                    // compute per-frame movement amount (gentler)
+                    const moveAmount = this.speed * sensitivity;
+
+                    // Instead of snapping when close, always take a capped, smoothed step so motion feels gradual.
+                    // step = min(moveAmount, dist) then apply a smoothing multiplier to avoid sudden jumps.
+                    const rawStep = Math.min(moveAmount, dist);
+                    const SMOOTHING = 0.75; // slightly higher -> quicker per-frame movement
+                    const step = rawStep * SMOOTHING;
+
+                    if (step > 0) {
+                        const nextX = this.x + Math.cos(angleToMouse) * step;
+                        const nextY = this.y + Math.sin(angleToMouse) * step;
+                        if (!map.isSolid(nextX, this.y)) this.x = nextX;
+                        if (!map.isSolid(this.x, nextY)) this.y = nextY;
+                    }
+                } else {
+                    // original gradual movement (unchanged)
+                    if (dist > this.radius) {
+                        const nextX = this.x + Math.cos(angleToMouse) * this.speed;
+                        const nextY = this.y + Math.sin(angleToMouse) * this.speed;
+
+                        // X軸の移動と衝突判定
+                        if (!map.isSolid(nextX, this.y)) {
+                            this.x = nextX;
+                        }
+                        // Y軸の移動と衝突判定
+                        if (!map.isSolid(this.x, nextY)) {
+                            this.y = nextY;
+                        }
+                    }
+                }
+
+                // Map looping
+                if (this.x < 0) this.x = MAP_WIDTH;
+                if (this.x > MAP_WIDTH) this.x = 0;
+                if (this.y < 0) this.y = MAP_HEIGHT;
+                if (this.y > MAP_HEIGHT) this.y = 0;
+
+                // Shooting
+                if (this.shootTimer > 0) this.shootTimer -= 1000/60;
+                if (mouse.down && this.shootTimer <= 0) {
+                    this.shoot();
+                    this.shootTimer = this.shootCooldown;
+                }
+
+                // Invulnerability timer
+                if (this.invulnerabilityTimer > 0) {
+                    this.invulnerabilityTimer -= 1000 / 60; // 毎フレーム時間を減らす
+                }
+
+                // Dashing
+                if(this.dashTimer > 0) this.dashTimer -= 1000/60;
+                if ((keys['ShiftLeft'] || keys['Space']) && this.dashTimer <= 0) {
+                    this.isDashing = true;
+                    this.dashTimer = this.dashCooldown;
+                    setTimeout(() => this.isDashing = false, this.dashDuration);
+                }
+                if (this.isDashing) {
+                     this.x += Math.cos(angleToMouse) * this.dashSpeed;
+                     this.y += Math.sin(angleToMouse) * this.dashSpeed;
+                }
+            }
+
+            shoot() {
+                const speed = this.hasRockets ? 10 : 15;
+                const projectileType = this.hasRockets ? 'rocket' : 'bullet';
+                const color = this.hasHoming ? '#90ee90' : '#fff';
+
+                const velocity = {
+                    x: Math.cos(this.angle) * speed,
+                    y: Math.sin(this.angle) * speed
+                };
+
+                const proj = new Projectile(this.x, this.y, velocity, this.damage, color, this.hasHoming, projectileType);
+                proj.pierce = this.pierceCount; // 貫通回数を弾に設定
+                proj.targetFaction = 'enemy'; // Player's projectiles target enemies
+
+                if (this.hasHoming) {
+                    const lvl = Math.max(1, this.level || 1);
+                    proj.homingRange = 120 + (lvl - 1) * 30;
+                    proj.turnSpeed = 0.02 + (lvl - 1) * 0.01;
+                    proj.life = proj.life || 180;
+                    proj.homingLifeBonus = Math.floor((lvl - 1) * 20);
+                    proj.life += proj.homingLifeBonus;
+                }
+                
+                projectiles.push(proj);
+                game.playSound('shoot', 0.3);
+            }
+            
+            addXp(amount) {
+                this.xp += amount;
+                if (this.xp >= this.xpToNextLevel) {
+                    this.levelUp();
+                }
+            }
+            
+            levelUp() {
+                this.xp -= this.xpToNextLevel;
+                this.level++;
+                this.xpToNextLevel = Math.floor(this.xpToNextLevel * 1.5);
+                this.hp = this.maxHp; // Heal on level up
+                game.playSound('levelUp', 0.6);
+                game.showUpgradeModal();
+            }
+
+            takeDamage(amount) {
+                this.hp -= amount;
+                if (this.hp < 0) this.hp = 0;
+            }
+
+            draw(ctx) {
+                // 無敵時間中は点滅させる
+                if (this.invulnerabilityTimer > 0) {
+                    if (Math.floor(this.invulnerabilityTimer / 100) % 2 !== 0) {
+                        return;
+                    }
+                }
+
+                ctx.save(); // 現在の描画状態を保存
+                ctx.translate(this.x, this.y); // プレイヤーの中心に座標を移動
+                ctx.rotate(this.angle); // 照準の角度に合わせて回転
+
+                // 画像をプレイヤーの中心に描画
+                // 画像をプレイヤーの中心に描画
+                ctx.drawImage(
+                    game.playerImage, // gameオブジェクトが持つ画像を使うように変更
+                    -this.radius, // 画像の描画開始位置X (半径分左にずらす)
+                    -this.radius, // 画像の描画開始位置Y (半径分上にずらす)
+                    this.radius * 2, // 描画する画像の幅
+                    this.radius * 2  // 描画する画像の高さ
+                );
+
+                ctx.restore(); // 描画状態を元に戻す
+
+                // 照準線は回転させないので、restoreの後に描画する
+                const reticleDist = this.radius + 15;
+                const reticleX = this.x + Math.cos(this.angle) * reticleDist;
+                const reticleY = this.y + Math.sin(this.angle) * reticleDist;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(reticleX, reticleY);
+                ctx.stroke();
+            }
+        }
+        
+        class Enemy {
+            constructor(x, y, wave, type = 'grunt') {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.level = wave || 1; // track enemy "level" (wave) for scaling behaviors
+                this.radius = 12 + Math.random() * 5;
+                // Enemy speed: make starting enemies slower and increase gradually per wave.
+                // Tunable parameters below:
+                const ENEMY_BASE_SPEED = 0.25;       // base speed at wave 0
+                const ENEMY_SPEED_PER_WAVE = 0.04;   // additional speed per wave
+                const ENEMY_SPEED_RANDOMNESS = 0.25; // small per-enemy randomness
+                this.speed = ENEMY_BASE_SPEED + wave * ENEMY_SPEED_PER_WAVE + Math.random() * ENEMY_SPEED_RANDOMNESS;
+                this.baseSpeed = this.speed; // Store original speed
+                this.maxHp = 10 + wave * 5;
+                this.hp = this.maxHp;
+                this.damage = 5 + wave;
+                this.xpValue = 2 + wave;
+                this.resourceValue = 1;
+                this.isDead = false;
+                
+                this.shootCooldown = Math.max(500, 4000 - wave * 150);
+                this.shootTimer = Math.random() * this.shootCooldown;
+
+                // Score value per enemy type (used for leaderboard scoring)
+                this.scoreValue = 100; // default for grunt
+
+                switch(type) {
+                    case 'grunt':
+                        this.color = '#ff4d4d';
+                        break;
+                    case 'chaser':
+                        this.color = '#ff8c00';
+                        // chasers are a bit faster but not excessively so
+                        this.speed *= 1.25;
+                        this.maxHp *= 0.7;
+                        this.hp = this.maxHp;
+                        this.scoreValue = 150;
+                        break;
+                    case 'splitter':
+                        this.color = '#9932cc';
+                        this.radius *= 1.5;
+                         this.maxHp *= 2;
+                         this.hp = this.maxHp;
+                        this.scoreValue = 300;
+                        break;
+                    case 'boss':
+                        this.color = '#ffd700';
+                        this.radius = 60;
+                        // Boss moves moderately and scales slightly with wave
+                        this.speed = 0.45 + wave * 0.02;
+                        this.maxHp = 100 + wave * 50;
+                        this.hp = this.maxHp;
+                        this.damage = 20 + wave * 2;
+                        this.xpValue = 50 + wave * 5;
+                        this.resourceValue = 10;
+                        this.shootCooldown = 800;
+                        this.scoreValue = 2000;
+                        break;
+                }
+            }
+
+            update(player) {
+                // Prefer towers as targets if within aggro range
+                let moveTarget = player;
+                if (towers && towers.length > 0) {
+                    let closestTower = null;
+                    let closestDist = Infinity;
+                    for (let t of towers) {
+                        const d = Math.hypot(t.x - this.x, t.y - this.y);
+                        if (d < closestDist && d <= ENEMY_TOWER_AGGRO_RANGE) {
+                            closestDist = d;
+                            closestTower = t;
+                        }
+                    }
+                    if (closestTower) moveTarget = closestTower;
+                }
+
+                const angle = Math.atan2(moveTarget.y - this.y, moveTarget.x - this.x);
+                const nextX = this.x + Math.cos(angle) * this.speed;
+                const nextY = this.y + Math.sin(angle) * this.speed;
+
+                // X軸の移動と衝突判定
+                if (!map.isSolid(nextX, this.y)) {
+                    this.x = nextX;
+                }
+                // Y軸の移動と衝突判定
+                if (!map.isSolid(this.x, nextY)) {
+                    this.y = nextY;
+                }
+                
+                // If target is a tower and we are in contact, deal damage to the tower (per-frame DPS)
+                if (moveTarget !== player) {
+                    const distToTarget = Math.hypot(moveTarget.x - this.x, moveTarget.y - this.y);
+                    const contactRange = this.radius + (moveTarget.radius || 20) + 2;
+                    if (distToTarget <= contactRange) {
+                        const dmgPerFrame = (this.damage || 1) / 60; // damage per frame assuming 60fps
+                        moveTarget.hp = (moveTarget.hp || 0) - dmgPerFrame;
+                        if (moveTarget.hp <= 0) {
+                            const idx = towers.indexOf(moveTarget);
+                            if (idx >= 0) towers.splice(idx, 1);
+                            for (let i = 0; i < 8; i++) particles.push(new Particle(moveTarget.x, moveTarget.y, '#ff4400', 3, Math.random() * 3 + 1));
+                        }
+                    }
+                }
+
+                // Enemy shooting
+                if(this.type === 'grunt' || this.type === 'chaser') {
+                    this.shootTimer -= 1000/60;
+                    // Only attempt to shoot when enemy is within the camera view (visible to player)
+                    const left = camera.x - canvas.width / 2;
+                    const right = camera.x + canvas.width / 2;
+                    const top = camera.y - canvas.height / 2;
+                    const bottom = camera.y + canvas.height / 2;
+                    const onScreen = (this.x >= left && this.x <= right && this.y >= top && this.y <= bottom);
+
+                    if (this.shootTimer <= 0 && onScreen) {
+                        // Reduce base projectile speed for early waves and add a small per-level/wave increment
+                        const BASE_PROJECTILE_SPEED = 3.0; // slower base
+                        const projectileSpeed = BASE_PROJECTILE_SPEED + (this.level * 0.05) + (Math.random() * 0.3);
+                        const velocity = { x: Math.cos(angle) * projectileSpeed, y: Math.sin(angle) * projectileSpeed };
+                        const useHoming = this.type === 'chaser';
+
+                        const proj = new Projectile(this.x, this.y, velocity, this.damage, '#ff00ff', useHoming);
+                        proj.targetFaction = 'player'; // Enemy projectiles target player
+                        if (useHoming) {
+                            // Make enemy homing weaker at low levels: slower turnSpeed and narrower homing range
+                            proj.turnSpeed = 0.01 + (this.level * 0.005); // level1:0.015, level5:0.035
+                            proj.homingRange = 120 + (this.level * 20); // level1:120px
+                            // shorten homing lifetime slightly for low level enemies
+                            proj.life = Math.max(90, proj.life - (30 - this.level * 3));
+                        }
+
+                        // If targeting a tower, mark projectile type as 'enemy' as before
+                        enemyProjectiles.push(proj);
+                        this.shootTimer = this.shootCooldown;
+                    }
+                }
+
+                // Map looping
+                if (this.x < 0) this.x = MAP_WIDTH;
+                if (this.x > MAP_WIDTH) this.x = 0;
+                if (this.y < 0) this.y = MAP_HEIGHT;
+                if (this.y > MAP_HEIGHT) this.y = 0;
+            }
+            
+            takeDamage(amount) {
+                this.hp -= amount;
+                if (this.hp <= 0 && !this.isDead) {
+                    this.die();
+                }
+            }
+
+            die() {
+                this.isDead = true;
+                // Award XP and scoring
+                player.addXp(this.xpValue);
+                if (player) {
+                    player.kills = (player.kills || 0) + 1;
+                    player.score = (player.score || 0) + (this.scoreValue || 0);
+                }
+                for (let i = 0; i < 15; i++) {
+                    particles.push(new Particle(this.x, this.y, this.color));
+                }
+                resources.push(new Resource(this.x, this.y, this.resourceValue));
+                
+                if (this.type === 'splitter') {
+                    for(let i=0; i<2; i++) {
+                        const newEnemy = new Enemy(this.x + (Math.random()-0.5)*20, this.y + (Math.random()-0.5)*20, wave, 'grunt');
+                        newEnemy.radius = this.radius * 0.6;
+                        newEnemy.maxHp = this.maxHp * 0.4;
+                        newEnemy.hp = newEnemy.maxHp;
+                        enemies.push(newEnemy);
+                    }
+                }
+            }
+
+            resetEffects() {
+                this.speed = this.baseSpeed;
+            }
+
+            draw(ctx) {
+                // If an enemy sprite image is available, draw it centered and rotated.
+                if (ENEMY_IMAGE_LOADED) {
+                    const imgW = ENEMY_IMAGE.width || ENEMY_IMAGE.naturalWidth || 64;
+                    const imgH = ENEMY_IMAGE.height || ENEMY_IMAGE.naturalHeight || 64;
+                    // scale so the larger side fits roughly the enemy diameter
+                    const scale = (this.radius * 2) / Math.max(imgW, imgH) * 1.2;
+                    const drawW = imgW * scale;
+                    const drawH = imgH * scale;
+
+                    ctx.save();
+                    // circular clip to hide rectangular sprite corners
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.clip();
+
+                    ctx.drawImage(ENEMY_IMAGE, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                    ctx.restore();
+                } else {
+                    // Fallback: draw a sharper enemy sprite (triangle + outline) for more style
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    const s = Math.max(6, this.radius);
+                    // Rotation disabled for fallback as well
+                    // main body
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -s);
+                    ctx.lineTo(s * 0.8, s);
+                    ctx.lineTo(-s * 0.8, s);
+                    ctx.closePath();
+                    ctx.fill();
+                    // inner accent
+                    ctx.fillStyle = '#222';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -s * 0.5);
+                    ctx.lineTo(s * 0.35, s * 0.6);
+                    ctx.lineTo(-s * 0.35, s * 0.6);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Health bar
+                if (this.hp < this.maxHp) {
+                    ctx.fillStyle = '#f00';
+                    ctx.fillRect(this.x - this.radius, this.y - this.radius - 10, this.radius * 2, 5);
+                    ctx.fillStyle = '#0f0';
+                    ctx.fillRect(this.x - this.radius, this.y - this.radius - 10, (this.hp / this.maxHp) * this.radius * 2, 5);
+                }
+            }
+        }
+        
+        class Projectile {
+            constructor(x, y, velocity, damage, color = '#fff', homing = false, type = 'bullet') {
+                this.x = x;
+                this.y = y;
+                this.velocity = velocity;
+                this.damage = damage;
+                this.radius = 5;
+                this.color = color;
+                this.homing = homing;
+                this.target = null;
+                this.turnSpeed = 0.05;
+                this.type = type;
+                this.blastRadius = 100;
+                this.life = 180; // 寿命を追加 (60fpsで約3秒)
+                this.pierce = 0; // 貫通回数
+                this.targetFaction = 'enemy'; // 'enemy' or 'player'
+            }
+
+            update() {
+                this.life--; // 毎フレーム寿命を減らす
+
+                if(this.homing) {
+                    this.findTarget();
+                    if(this.target) {
+                        const angleToTarget = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                        const currentAngle = Math.atan2(this.velocity.y, this.velocity.x);
+                        let angleDiff = angleToTarget - currentAngle;
+                        
+                        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                        
+                        const newAngle = currentAngle + Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), this.turnSpeed);
+                        
+                        const speed = Math.hypot(this.velocity.x, this.velocity.y);
+                        this.velocity.x = Math.cos(newAngle) * speed;
+                        this.velocity.y = Math.sin(newAngle) * speed;
+                    }
+                }
+            
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+
+                // Map looping
+                if (this.x < 0) this.x = MAP_WIDTH;
+                if (this.x > MAP_WIDTH) this.x = 0;
+                if (this.y < 0) this.y = MAP_HEIGHT;
+                if (this.y > MAP_HEIGHT) this.y = 0;
+
+                // 障害物との衝突判定
+                if (map.isSolid(this.x, this.y)) {
+                    this.life = 0; // 寿命を0にして消滅させる
+                    // ヒットエフェクト
+                    for(let i = 0; i < 5; i++) {
+                        particles.push(new Particle(this.x, this.y, '#aaa'));
+                    }
+                }
+            }
+            
+            findTarget() {
+                if (this.target && !this.target.isDead) return;
+
+                const defaultHomingRange = 300;
+                const HOMING_RANGE = (typeof this.homingRange === 'number') ? this.homingRange : defaultHomingRange;
+
+                let closestDist = Infinity;
+                let closestTarget = null;
+
+                if (this.targetFaction === 'enemy') {
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(this.x - e.x, this.y - e.y);
+                        if (dist <= HOMING_RANGE && dist < closestDist) {
+                            closestDist = dist;
+                            closestTarget = e;
+                        }
+                    });
+                } else if (this.targetFaction === 'player') {
+                    if (player && player.hp > 0) {
+                        const dist = Math.hypot(this.x - player.x, this.y - player.y);
+                        if (dist <= HOMING_RANGE) {
+                            closestTarget = player;
+                        }
+                    }
+                }
+                this.target = closestTarget;
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        class Particle {
+            constructor(x, y, color, size = 2, speed = 3) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * size + 1;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * speed;
+                this.velocity = {
+                    x: Math.cos(angle) * velocity,
+                    y: Math.sin(angle) * velocity
+                };
+                this.life = 100;
+                this.friction = 0.98;
+            }
+
+            update() {
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+                this.velocity.x *= this.friction;
+                this.velocity.y *= this.friction;
+                this.life--;
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life / 100;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        class Resource {
+            constructor(x, y, value) {
+                this.x = x;
+                this.y = y;
+                this.value = value;
+                this.radius = 8;
+                this.color = '#ffd700';
+                this.collectionSpeed = 8;
+                this.collected = false;
+            }
+            
+            update(player) {
+                const dist = Math.hypot(player.x - this.x, player.y - this.y);
+                if (dist < player.radius + 50) { // Magnetism
+                    const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                    this.x += Math.cos(angle) * this.collectionSpeed;
+                    this.y += Math.sin(angle) * this.collectionSpeed;
+                }
+                if (dist < player.radius) {
+                    player.resources += Math.floor(this.value * player.resourceMultiplier);
+                    this.collected = true;
+                }
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - this.radius);
+                for (let i = 1; i < 5; i++) {
+                    ctx.lineTo(
+                        this.x + this.radius * Math.cos(Math.PI * 2 * i / 5 + Math.PI / 2),
+                        this.y - this.radius * Math.sin(Math.PI * 2 * i / 5 + Math.PI / 2)
+                    );
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+        
+        class Tower {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.radius = 20;
+
+                // base stats (smaller range and slower initial fire rate)
+                switch(type) {
+                        case 'gatling':
+                            this.baseRange = 150; // smaller initially
+                            this.range = this.baseRange;
+                            // Make base cooldown slower so player level buff brings it up to reasonable speed by lv10
+                            this.baseShootCooldown = 1200; // ms
+                            this.shootCooldown = this.baseShootCooldown;
+                            this.baseDamage = 6;
+                            this.damage = this.baseDamage;
+                            this.color = '#888';
+                            this.baseMaxHp = 80;
+                        break;
+                    case 'slow':
+                            this.baseRange = 120;
+                            this.range = this.baseRange;
+                            this.baseShootCooldown = 1500;
+                            this.shootCooldown = this.baseShootCooldown;
+                        this.slowFactor = 0.5;
+                        this.color = '#6495ed';
+                        this.baseMaxHp = 120;
+                        break;
+                    default:
+                            this.baseRange = 140;
+                            this.range = this.baseRange;
+                            this.baseShootCooldown = 1000;
+                            this.shootCooldown = this.baseShootCooldown;
+                            this.baseDamage = 4;
+                            this.damage = this.baseDamage;
+                            this.baseMaxHp = 90;
+                }
+
+                this.hp = this.baseMaxHp;
+                this.shootTimer = 0;
+                this.target = null;
+                this.purchaseCost = this.purchaseCost || TOWER_BASE_COST;
+                this.upgradeLevel = this.upgradeLevel || 0;
+            }
+
+            update(enemies, towers) {
+                this.findTarget(enemies);
+                
+                if (this.target) {
+                    this.shootTimer -= 1000/60;
+                    // Compute effective cooldown factoring player level and tower's own upgrade level
+                    const playerLevelBuff = (player && player.level) ? (1 + (player.level - 1) * 0.05) : 1; // 1レベルあたり5%に調整
+                    const upgradeDebuff = 1 + (this.upgradeLevel || 0) * 0.12; // upgrades make it a bit faster (divide)
+                    const effectiveCooldown = Math.max(80, Math.floor(this.baseShootCooldown / playerLevelBuff / upgradeDebuff));
+                    if (this.shootTimer <= 0) {
+                        this.shoot();
+                        this.shootTimer = effectiveCooldown;
+                    }
+                } else {
+                    if (this.shootTimer < this.shootCooldown) {
+                        this.shootTimer += 1000/60; // ターゲットがいない時はクールダウンを回復
+                    }
+                }
+                
+                 if (this.type === 'slow') {
+                     enemies.forEach(e => {
+                         const dist = Math.hypot(this.x - e.x, this.y - e.y);
+                         if (dist < this.range) {
+                             e.speed *= this.slowFactor;
+                         }
+                     });
+                 }
+            }
+            
+            findTarget(enemies) {
+                if (this.target && !this.target.isDead && Math.hypot(this.x - this.target.x, this.y - this.target.y) < this.range) return;
+
+                let closestDist = this.range;
+                this.target = null;
+                enemies.forEach(e => {
+                    const dist = Math.hypot(this.x - e.x, this.y - e.y);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        this.target = e;
+                    }
+                });
+            }
+            
+            shoot() {
+                const angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                const speed = this.projectileSpeed || 20;
+                const velocity = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
+                if (this.projectileType === 'rocket') {
+                    const p = new Projectile(this.x, this.y, velocity, this.damage, '#ffcc00', false, 'rocket');
+                    p.blastRadius = this.blastRadius || 80;
+                    projectiles.push(p);
+                } else {
+                    projectiles.push(new Projectile(this.x, this.y, velocity, this.damage, '#ffff00'));
+                }
+                game.playSound('shoot', 0.1);
+            }
+
+            draw(ctx) {
+                // Base
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw upgrade level above tower
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px Meiryo, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Lv.${this.upgradeLevel || 0}`, this.x, this.y - this.radius - 14);
+
+                // Draw HP bar above tower
+                const hpW = this.radius * 2;
+                const hpH = 5;
+                const hpX = this.x - this.radius;
+                const hpY = this.y - this.radius - 10;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(hpX, hpY, hpW, hpH);
+                ctx.fillStyle = '#f00';
+                const hpRatio = Math.max(0, Math.min(1, (this.hp || 0) / (this.baseMaxHp || 100)));
+                ctx.fillRect(hpX, hpY, hpW * hpRatio, hpH);
+
+                // Barrel
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                const angle = this.target ? Math.atan2(this.target.y - this.y, this.target.x - this.x) : 0;
+                ctx.lineTo(this.x + Math.cos(angle) * (this.radius + 5), this.y + Math.sin(angle) * (this.radius + 5));
+                ctx.stroke();
+
+                // Range indicator
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.range, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+        
+        class Map {
+            constructor(width, height, tileSize) {
+                this.width = width;
+                this.height = height;
+                this.tileSize = tileSize;
+                this.cols = Math.floor(width / tileSize);
+                this.rows = Math.floor(height / tileSize);
+                this.tiles = [];
+                this.generate();
+            }
+            
+            generate() {
+                const obstacleCount = (this.cols * this.rows) * 0.02; // マップの2%を障害物にする
+                const centerBuffer = 5; // プレイヤーの初期位置周辺には障害物を置かない
+
+                // 全てを床タイルで初期化
+                for (let y = 0; y < this.rows; y++) {
+                    this.tiles[y] = [];
+                    for (let x = 0; x < this.cols; x++) {
+                        this.tiles[y][x] = 1; // 1 = floor
+                    }
+                }
+
+                // 障害物（隕石）をランダムに配置
+                for (let i = 0; i < obstacleCount; i++) {
+                    let x, y;
+                    do {
+                        x = Math.floor(Math.random() * this.cols);
+                        y = Math.floor(Math.random() * this.rows);
+                    } while (
+                        // 中央エリアには置かない
+                        Math.abs(x - this.cols / 2) < centerBuffer &&
+                        Math.abs(y - this.rows / 2) < centerBuffer
+                    );
+                    this.tiles[y][x] = 2; // 2 = obstacle
+                }
+            }
+            
+            getTile(x, y) {
+                // マップがループしているため、画面外の座標も反対側の座標に変換してタイル情報を取得する
+                const wrappedX = (x % this.cols + this.cols) % this.cols;
+                const wrappedY = (y % this.rows + this.rows) % this.rows;
+                return this.tiles[wrappedY][wrappedX];
+            }
+
+            isSolid(worldX, worldY) {
+                const tileX = Math.floor(worldX / this.tileSize);
+                const tileY = Math.floor(worldY / this.tileSize);
+                return this.getTile(tileX, tileY) === 2;
+            }
+
+            getRandomFloorPosition() {
+                let x, y;
+                do {
+                    x = Math.floor(Math.random() * this.cols);
+                    y = Math.floor(Math.random() * this.rows);
+                } while (this.tiles[y][x] !== 1);
+                return { x: x * this.tileSize + this.tileSize / 2, y: y * this.tileSize + this.tileSize / 2 };
+            }
+            
+            draw(ctx, camera) {
+                const startCol = Math.floor((camera.x - canvas.width / 2) / this.tileSize);
+                const endCol = Math.ceil((camera.x + canvas.width / 2) / this.tileSize);
+                const startRow = Math.floor((camera.y - canvas.height / 2) / this.tileSize);
+                const endRow = Math.ceil((camera.y + canvas.height / 2) / this.tileSize);
+
+                for (let y = startRow; y < endRow; y++) {
+                    for (let x = startCol; x < endCol; x++) {
+                        // マップループ描画に対応するため、実際のタイル座標を計算
+                        const actualX = (x % this.cols + this.cols) % this.cols;
+                        const actualY = (y % this.rows + this.rows) % this.rows;
+                        
+                        const tile = this.tiles[actualY][actualX];
+
+                        if (tile === 1) { // Floor
+                            ctx.strokeStyle = '#444';
+                            ctx.strokeRect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize);
+                        } else if (tile === 2) { // Obstacle
+                            ctx.fillStyle = '#8B4513'; // 隕石の色
+                            ctx.beginPath();
+                            ctx.arc(
+                                x * this.tileSize + this.tileSize / 2,
+                                y * this.tileSize + this.tileSize / 2,
+                                this.tileSize / 2 * 0.9, // 少し小さめに描画
+                                0, Math.PI * 2
+                            );
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==============================================
+        // --- アップグレードデータ ---
+        // ==============================================
+        
+        const UPGRADE_POOL = [
+            {
+                name: "攻撃力強化",
+                description: "弾のダメージが20%増加する。",
+                icon: '💥',
+                apply: (p) => { p.damage *= 1.2; }
+            },
+            {
+                name: "連射速度向上",
+                description: "攻撃のクールダウンが15%短縮される。",
+                icon: '⚡️',
+                apply: (p) => { p.shootCooldown *= 0.85; }
+            },
+            {
+                name: "最大HP増加",
+                description: "最大HPが25増加し、全回復する。",
+                icon: '❤️',
+                apply: (p) => { p.maxHp += 25; p.hp = p.maxHp; }
+            },
+            {
+                name: "移動速度上昇",
+                description: "自機の移動速度が10%増加する。",
+                icon: '👟',
+                apply: (p) => { p.speed *= 1.1; }
+            },
+            {
+                name: "ホーミング弾",
+                description: "弾が近くの敵を自動で追尾するようになる。",
+                icon: '🎯',
+                apply: (p) => { p.hasHoming = true; }
+            },
+            {
+                name: "ロケット弾",
+                description: "弾が着弾時に爆発し、範囲ダメージを与えるようになる。",
+                icon: '🚀',
+                 apply: (p) => { p.hasRockets = true; }
+            },
+            {
+                name: "貫通弾",
+                description: "弾が敵を1体貫通するようになる。複数取得で効果が累積。",
+                icon: '➡️',
+                apply: (p) => { p.pierceCount = (p.pierceCount || 0) + 1; }
+            },
+            {
+                name: "タワー自動修復",
+                description: "プレイヤーがタワーの近くにいると、タワーのHPが自動で回復するようになる。",
+                icon: '🔧',
+                type: 'tower',
+                apply: (p) => { towerAutoRepairUnlocked = true; }
+            },
+            {
+                name: "資源獲得量増加",
+                description: "敵がドロップする資源の量が25%増加する。",
+                icon: '💰',
+                type: 'player',
+                apply: (p) => { p.resourceMultiplier = (p.resourceMultiplier || 1.0) + 0.25; }
+            },
+            {
+                name: "ダメージオーラ",
+                description: "自機の周囲に継続ダメージを与えるオーラを展開する。",
+                icon: '💫',
+                apply: (p) => {
+                    p.aura = { radius: 100, dps: 5 + p.level };
+                }
+            },
+            {
+                name: "タワー弾強化",
+                description: "既存のタワーの弾のダメージが25%増加する。",
+                icon: '🗼',
+                type: 'tower',
+                apply: (p) => {
+                    towers.forEach(t => {
+                        if (t.baseDamage) {
+                            t.baseDamage *= 1.25;
+                            t.damage = Math.ceil(t.baseDamage);
+                        }
+                    });
+                }
+            },
+            {
+                name: "タワー弾ロケット化",
+                description: "タワーの弾をロケット化し、着弾時に小さな爆風を起こすようにする。",
+                icon: '💣',
+                type: 'tower',
+                apply: (p) => {
+                    towers.forEach(t => {
+                        t.projectileType = 'rocket';
+                        t.blastRadius = (t.blastRadius || 60) + 20;
+                    });
+                }
+            },
+            {
+                name: "スロータワー設置",
+                description: "右クリックで、敵を減速させるスロータワーを設置できるようになる。",
+                icon: '❄️',
+                type: 'player', // Affects player ability
+                apply: (p) => {
+                    // Overwrite the tower placement function
+                    placeTowerAt = function(worldX, worldY) {
+                        if (towers.length >= MAX_TOWERS) return { ok: false, reason: 'タワーの最大数に達しています' };
+                        if (map.isSolid(worldX, worldY)) return { ok: false, reason: '障害物上には設置できません' };
+                        if (Math.hypot(worldX - player.x, worldY - player.y) < player.radius + 40) return { ok: false, reason: 'プレイヤーに近すぎます' };
+                        
+                        const cost = getNextTowerCost();
+                        if (player.resources < cost) return { ok: false, reason: '資源が足りません' };
+                        
+                        player.resources -= cost;
+                        // Allow choosing tower type in the future, for now, alternates
+                        const towerType = towers.length % 2 === 1 ? 'slow' : 'gatling';
+                        const t = new Tower(worldX, worldY, towerType);
+                        t.purchaseCost = cost;
+                        t.upgradeLevel = 0;
+                        t.hp = t.baseMaxHp;
+                        towers.push(t);
+                        return { ok: true, tower: t };
+                    };
+                }
+            },
+            {
+                name: "タワー射程強化",
+                description: "全てのタワーの射程が15%増加する。",
+                icon: '🔭',
+                type: 'tower',
+                apply: (p) => {
+                    towers.forEach(t => {
+                        t.baseRange = (t.baseRange || t.range) * 1.15;
+                        t.range = t.baseRange;
+                    });
+                }
+            },
+        ];
+
+        // ==============================================
+        // --- ゲーム開始 ---
+        // ==============================================
+        
+        const game = new Game();
+        // ゲームループはここで一度だけ開始します
+        game.gameLoop(); // ゲームループをここで開始
+
+    </script>
+</body>
+</html>
